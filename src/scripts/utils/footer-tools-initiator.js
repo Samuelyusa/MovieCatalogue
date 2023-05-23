@@ -26,7 +26,9 @@ const FooterToolsInitiator = {
     },
     
     // eslint-disable-next-line no-empty-function
-    async _initialState() {},
+    async _initialState() {
+        this._showSubscribeButton();
+    },
     
     async _subscribePushMessage(event) {
         event.stopPropagation();
@@ -56,12 +58,37 @@ const FooterToolsInitiator = {
             // Undo subscribing push notification
             await pushSubscription?.unsubscribe();
         }
+
+        this._showSubscribeButton();
     },
     
     async _unsubscribePushMessage(event) {
         event.stopPropagation();
         console.log('_unsubscribePushMessage');
         // TODO: Do unsubscribe to push message
+
+        const pushSubscription = await this._registrationServiceWorker?.pushManager.getSubscription();
+            if (!pushSubscription) {
+            window.alert('Haven\'t subscribing to push message');
+            return;
+            }
+            
+            try {
+                    await this._sendPostToServer(CONFIG.PUSH_MSG_UNSUBSCRIBE_URL, pushSubscription);
+                    const isHasBeenUnsubscribed = await pushSubscription.unsubscribe();
+                
+                    if (!isHasBeenUnsubscribed) {
+                        console.log('Failed to unsubscribe push message');
+                        await this._sendPostToServer(CONFIG.PUSH_MSG_SUBSCRIBE_URL, pushSubscription);
+                        return;
+                    }
+                
+                    console.log('Push message has been unsubscribed');
+                }
+                catch (err) {
+                    console.error('Failed to erase push notification data from server:', err.message);
+        }
+        this._showSubscribeButton();
     },
     
     _urlB64ToUint8Array: (base64String) => {
@@ -132,6 +159,12 @@ const FooterToolsInitiator = {
         }
         }
         return true;
+    },
+
+    async _showSubscribeButton() {
+        this._isSubscribedToServerForHiddenSubscribeButton(
+        await this._isCurrentSubscriptionAvailable(),
+        );
     },
 };
 
